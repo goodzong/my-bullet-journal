@@ -310,7 +310,7 @@ function renderLogin(msg){
     <div class="tape index">불렛저널</div>
     <div class="card">
       <h3>로그인</h3>
-      <div class="subhead" style="margin:-2px 0 12px 0;">이메일로 받은 링크를 누르거나 6자리 코드를 입력해서 로그인해요. 비밀번호는 필요 없어요.</div>
+      <div class="subhead" style="margin:-2px 0 12px 0;">이메일로 받은 링크를 누르거나 코드를 입력해서 로그인해요. 비밀번호는 필요 없어요.</div>
       <div class="add-form">
         <input type="email" id="loginEmail" class="text-input" placeholder="이메일 주소" autocomplete="email" value="${esc(pendingLoginEmail||'')}">
         <button type="button" class="add-btn" style="align-self:flex-start;padding:9px 18px;" onclick="sendMagicLink()">매직링크 보내기</button>
@@ -318,8 +318,8 @@ function renderLogin(msg){
       ${msg?`<div class="subhead" style="margin-top:10px;">${esc(msg)}</div>`:''}
       ${pendingLoginEmail?`
       <div class="add-form" style="margin-top:14px;border-top:1px dashed var(--line);padding-top:14px;">
-        <div class="modal-label">홈 화면에 추가한 앱으로 열었다면, 메일에 적힌 6자리 코드를 여기에 입력하세요</div>
-        <input type="text" inputmode="numeric" id="loginCode" class="text-input" placeholder="6자리 코드" maxlength="6" onkeydown="inputEnter(event,this.nextElementSibling)">
+        <div class="modal-label">홈 화면에 추가한 앱으로 열었다면, 메일에 적힌 코드를 여기에 입력하세요</div>
+        <input type="text" inputmode="numeric" id="loginCode" class="text-input" placeholder="코드" onkeydown="inputEnter(event,this.nextElementSibling)">
         <button type="button" class="add-btn" style="align-self:flex-start;padding:9px 18px;" onclick="verifyLoginCode()">코드 확인</button>
       </div>`:''}
     </div>
