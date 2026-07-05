@@ -257,46 +257,82 @@ body{
 <div id="app"></div>
 <div id="toast" class="toast"></div>
 
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
 /* =========================================================
-   아이폰(기기) 저장소 — localStorage 기반
-   Claude 대화 안 저장 방식(window.storage) 대신,
-   이 파일을 연 브라우저(아이폰)의 기기 안에 직접 저장합니다.
+   Supabase 저장소 — 가족 각자 로그인해서 자신의 기록만
+   온라인 DB에 저장/동기화합니다.
    ========================================================= */
+const SUPABASE_URL='https://wdaohojpakgfomnvtgjx.supabase.co';
+const SUPABASE_ANON_KEY='sb_publishable_6wor7VHCOg6snfNn7ujOUg_bFutOpFH';
+const sb=window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+let currentUser=null;
+
 window.storage = {
-  async get(key, shared){
+  async get(key){
     try{
-      const raw = localStorage.getItem('bj_'+key);
-      if(raw===null || raw===undefined) return null;
-      return {key, value:raw, shared:!!shared};
+      const { data, error } = await sb.from('bj_data').select('value').eq('key', key).maybeSingle();
+      if(error || !data) return null;
+      return {key, value:data.value};
     }catch(e){ return null; }
   },
-  async set(key, value, shared){
+  async set(key, value){
     try{
-      localStorage.setItem('bj_'+key, value);
-      return {key, value, shared:!!shared};
+      const { error } = await sb.from('bj_data').upsert({key, value}, {onConflict:'user_id,key'});
+      if(error) return null;
+      return {key, value};
     }catch(e){ return null; }
   },
-  async delete(key, shared){
+  async delete(key){
     try{
-      localStorage.removeItem('bj_'+key);
-      return {key, deleted:true, shared:!!shared};
+      const { error } = await sb.from('bj_data').delete().eq('key', key);
+      if(error) return null;
+      return {key, deleted:true};
     }catch(e){ return null; }
   },
-  async list(prefix, shared){
+  async list(prefix){
     try{
-      const keys=[];
-      for(let i=0;i<localStorage.length;i++){
-        const k=localStorage.key(i);
-        if(k && k.indexOf('bj_')===0){
-          const realKey=k.slice(3);
-          if(!prefix || realKey.indexOf(prefix)===0) keys.push(realKey);
-        }
-      }
-      return {keys, prefix, shared:!!shared};
+      let query=sb.from('bj_data').select('key');
+      if(prefix) query=query.like('key', prefix+'%');
+      const { data, error } = await query;
+      if(error) return null;
+      return {keys:(data||[]).map(r=>r.key), prefix};
     }catch(e){ return null; }
   }
 };
+
+function renderLogin(msg){
+  const app=document.getElementById('app');
+  app.innerHTML=`
+    <div class="rings"><span></span><span></span><span></span><span></span><span></span></div>
+    <div class="tape index">불렛저널</div>
+    <div class="card">
+      <h3>로그인</h3>
+      <div class="subhead" style="margin:-2px 0 12px 0;">이메일로 받은 링크를 눌러 로그인해요. 비밀번호는 필요 없어요.</div>
+      <div class="add-form">
+        <input type="email" id="loginEmail" class="text-input" placeholder="이메일 주소" autocomplete="email">
+        <button type="button" class="add-btn" style="align-self:flex-start;padding:9px 18px;" onclick="sendMagicLink()">매직링크 보내기</button>
+      </div>
+      ${msg?`<div class="subhead" style="margin-top:10px;">${esc(msg)}</div>`:''}
+    </div>
+  `;
+}
+
+async function sendMagicLink(){
+  const email=document.getElementById('loginEmail').value.trim();
+  if(!email){ showToast('이메일을 입력해주세요'); return; }
+  const { error } = await sb.auth.signInWithOtp({ email, options:{ emailRedirectTo: window.location.href } });
+  if(error){ showToast('전송 실패: '+error.message); return; }
+  renderLogin('메일함을 확인해서 링크를 눌러주세요 (스팸함도 확인!)');
+}
+
+function logout(){ sb.auth.signOut(); }
+
+sb.auth.onAuthStateChange((_event, session)=>{
+  const user=session?.user||null;
+  if(user && (!currentUser || currentUser.id!==user.id)){ currentUser=user; render(); }
+  else if(!user && currentUser){ currentUser=null; renderLogin(); }
+});
 
 /* ===================== 유틸 ===================== */
 function esc(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
@@ -609,71 +645,6 @@ async function confirmSend(){
   showToast(sendCtx.move ? '이동했어요' : '복사했어요');
   closeSendModal();
   render();
-}
-
-/* ===================== 다른 기기로 옮기기 (내보내기/가져오기) ===================== */
-function collectAllLocalData(){
-  const out={};
-  for(let i=0;i<localStorage.length;i++){
-    const k=localStorage.key(i);
-    if(k && k.indexOf('bj_')===0){
-      out[k.slice(3)]=localStorage.getItem(k);
-    }
-  }
-  return out;
-}
-
-async function exportData(){
-  const data=collectAllLocalData();
-  if(Object.keys(data).length===0){ showToast('내보낼 기록이 아직 없어요'); return; }
-  const json=JSON.stringify(data);
-  const filename=`bullet-journal-backup-${todayISO()}.json`;
-
-  try{
-    const file=new File([json], filename, {type:'application/json'});
-    if(navigator.canShare && navigator.canShare({files:[file]})){
-      await navigator.share({files:[file], title:'불렛저널 백업'});
-      showToast('공유했어요! 다른 기기에서 이 파일로 가져오기 하세요');
-      return;
-    }
-  }catch(e){ /* 공유 취소/실패 시 다운로드로 대체 */ }
-
-  const blob=new Blob([json], {type:'application/json'});
-  const url=URL.createObjectURL(blob);
-  const a=document.createElement('a');
-  a.href=url; a.download=filename;
-  document.body.appendChild(a); a.click(); a.remove();
-  setTimeout(()=>URL.revokeObjectURL(url), 3000);
-  showToast('백업 파일이 저장되었어요');
-}
-
-function triggerImport(){
-  const el=document.getElementById('importFileInput');
-  if(el) el.click();
-}
-
-function handleImportFile(input){
-  const file=input.files && input.files[0];
-  if(!file) return;
-  const reader=new FileReader();
-  reader.onload=()=>{
-    try{
-      const obj=JSON.parse(reader.result);
-      if(typeof obj!=='object' || obj===null) throw new Error('invalid backup');
-      let count=0;
-      for(const k in obj){
-        localStorage.setItem('bj_'+k, obj[k]);
-        count++;
-      }
-      if(count===0){ showToast('백업 파일에 내용이 없어요'); return; }
-      showToast('가져오기 완료! 화면을 새로고침할게요');
-      setTimeout(()=>location.reload(), 900);
-    }catch(e){
-      showToast('올바른 백업 파일이 아니에요. 내보내기로 만든 파일을 선택해주세요.');
-    }
-  };
-  reader.readAsText(file);
-  input.value='';
 }
 
 /* ===================== 내비게이션 ===================== */
@@ -1072,14 +1043,10 @@ function indexHtml(){
     <div class="section-title">컬렉션</div>
     ${collList || '<div class="empty-msg">아직 컬렉션이 없어요. 컬렉션 탭에서 만들어보세요 ✎</div>'}
 
-    <div class="section-title">다른 기기로 옮기기</div>
+    <div class="section-title">계정</div>
     <div class="card sync-card">
-      <div class="subhead">이 기기(브라우저)에만 저장된 기록을 아이패드, PC 등 다른 기기로 옮길 수 있어요</div>
-      <div style="display:flex;gap:8px;">
-        <button class="action-btn" style="flex:1;" onclick="exportData()">📤 내보내기</button>
-        <button class="action-btn" style="flex:1;" onclick="triggerImport()">📥 가져오기</button>
-      </div>
-      <input type="file" id="importFileInput" accept="application/json,.json" style="display:none;" onchange="handleImportFile(this)">
+      <div class="subhead" style="margin:0 0 10px 0;">${esc(currentUser && currentUser.email || '')}(으)로 로그인됨 · 같은 계정으로 로그인하면 어떤 기기에서든 자동으로 동기화돼요</div>
+      <button class="action-btn" onclick="logout()">로그아웃</button>
     </div>
   `;
 }
@@ -1326,7 +1293,11 @@ async function render(){
   }
 }
 
-render();
+(async function boot(){
+  const { data:{ session } } = await sb.auth.getSession();
+  currentUser = session?.user || null;
+  if(currentUser) render(); else renderLogin();
+})();
 </script>
 </body>
 </html>
