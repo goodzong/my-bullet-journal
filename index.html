@@ -265,7 +265,7 @@ body{
    ========================================================= */
 const SUPABASE_URL='https://wdaohojpakgfomnvtgjx.supabase.co';
 const SUPABASE_ANON_KEY='sb_publishable_6wor7VHCOg6snfNn7ujOUg_bFutOpFH';
-const sb=window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+const sb=window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, { auth:{ flowType:'pkce' } });
 let currentUser=null;
 
 window.storage = {
