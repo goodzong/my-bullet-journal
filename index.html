@@ -311,6 +311,7 @@ function renderLogin(msg){
     <div class="card">
       <h3>로그인</h3>
       <div class="subhead" style="margin:-2px 0 12px 0;">이메일로 받은 인증 코드를 입력해서 로그인해요. 비밀번호는 필요 없어요.</div>
+      <div class="subhead" style="margin:0 0 12px 0;">📱 아이폰이라면: 로그인하기 전에 먼저 공유 버튼 → <b>홈 화면에 추가</b>를 해주세요. 그 다음 홈 화면 아이콘으로 열어서 로그인하면, 앱을 열 때마다 다시 로그인할 필요가 없어요.</div>
       <div class="add-form">
         <input type="email" id="loginEmail" class="text-input" placeholder="이메일 주소" autocomplete="email" value="${esc(pendingLoginEmail||'')}">
         <button type="button" class="add-btn" style="align-self:flex-start;padding:9px 18px;" onclick="sendMagicLink()">인증 코드 받기</button>
@@ -1062,6 +1063,7 @@ function indexHtml(){
     <div class="section-title">계정</div>
     <div class="card sync-card">
       <div class="subhead" style="margin:0 0 10px 0;">${esc(currentUser && currentUser.email || '')}(으)로 로그인됨 · 같은 계정으로 로그인하면 어떤 기기에서든 자동으로 동기화돼요</div>
+      <div class="subhead" style="margin:0 0 10px 0;">⚠️ 로그아웃하면 다시 이메일로 인증 코드를 받아야 재로그인할 수 있어요</div>
       <button class="action-btn" onclick="logout()">로그아웃</button>
     </div>
   `;
