@@ -214,7 +214,9 @@ body{
 .chk-text.done{color:var(--ink-light);text-decoration:line-through;}
 
 /* collections */
-.coll-card{background:#fff;border:1px solid var(--line);border-radius:var(--radius-container);padding:13px 14px;margin-bottom:10px;cursor:pointer;box-shadow:var(--shadow-low);}
+.coll-list{position:relative;}
+.coll-card{display:flex;align-items:center;gap:8px;background:#fff;border:1px solid var(--line);border-radius:var(--radius-container);padding:13px 14px;margin-bottom:10px;box-shadow:var(--shadow-low);}
+.coll-card-body{flex:1;cursor:pointer;}
 .coll-card .ctitle{font-weight:700;font-size:.95rem;margin-bottom:3px;}
 .coll-card .cmeta{font-size:.78rem;color:var(--ink-light);}
 .detail-actions{display:flex;gap:8px;margin-bottom:14px;}
@@ -930,8 +932,8 @@ let dragCtx=null;
 document.addEventListener('pointerdown', function(e){
   const handle=e.target.closest('.drag-handle');
   if(!handle) return;
-  const row=handle.closest('.entry-row,.chk-row');
-  const container=handle.closest('.entry-list,.chk-list');
+  const row=handle.closest('.entry-row,.chk-row,.coll-card');
+  const container=handle.closest('.entry-list,.chk-list,.coll-list');
   if(!row || !container) return;
   e.preventDefault();
   beginDrag(row, container, e);
@@ -1034,6 +1036,10 @@ function commitReorder(kind, container, idsOrder){
     const c=collectionsData.find(x=>x.id===cid);
     const map=new Map(c.items.map(x=>[x.id,x]));
     c.items=idsOrder.map(id=>map.get(id)).filter(Boolean);
+    markDirty('collections', collectionsData);
+  }else if(kind==='collection-list'){
+    const map=new Map(collectionsData.map(x=>[x.id,x]));
+    collectionsData=idsOrder.map(id=>map.get(id)).filter(Boolean);
     markDirty('collections', collectionsData);
   }
   render();
@@ -1274,9 +1280,12 @@ function collectionsHtml(){
     `;
   }
   const list=(collectionsData||[]).map(c=>`
-    <div class="coll-card" onclick="openCollection('${c.id}')">
-      <div class="ctitle">${esc(c.title)}</div>
-      <div class="cmeta">${c.items.length}개 항목 · 완료 ${c.items.filter(i=>i.done).length}개</div>
+    <div class="coll-card" data-id="${c.id}">
+      <span class="drag-handle">⠿</span>
+      <div class="coll-card-body" onclick="openCollection('${c.id}')">
+        <div class="ctitle">${esc(c.title)}</div>
+        <div class="cmeta">${c.items.length}개 항목 · 완료 ${c.items.filter(i=>i.done).length}개</div>
+      </div>
     </div>`).join('');
   return `
     <div class="tape collection">컬렉션</div>
@@ -1289,7 +1298,7 @@ function collectionsHtml(){
         </div>
       </div>
     </div>
-    ${list || '<div class="empty-msg">아직 컬렉션이 없어요. 위에서 첫 컬렉션을 만들어보세요 ✎</div>'}
+    ${list ? `<div class="coll-list" data-kind="collection-list">${list}</div>` : '<div class="empty-msg">아직 컬렉션이 없어요. 위에서 첫 컬렉션을 만들어보세요 ✎</div>'}
   `;
 }
 
